@@ -119,7 +119,8 @@ router.get('/nomina/ejecutadas/:transId', async (req: Request, res: Response) =>
                     bdt.ID as concepto_tipo_id,
                     bdt.Factor as factor,
                     CASE bdt.Factor WHEN 1 THEN 'Ingreso' ELSE 'Deducción' END as tipo_movimiento,
-                    te.Total as monto
+                    te.Total as monto,
+                    COALESCE(bd.CompanyPaid, 0) as company_paid
                 FROM SA_Trans_Employees te
                 INNER JOIN SA_Relationships r ON te.EmployeeID = r.ID
                 LEFT JOIN PR_Benefits_Discounts bd ON te.BenefitDiscountID = bd.ID
@@ -162,7 +163,7 @@ router.get('/nomina/resumen', async (req: Request, res: Response) => {
             LEFT JOIN SA_Trans_Employees te ON ta.ID = te.TransID
             LEFT JOIN PR_Benefits_Discounts bd ON te.BenefitDiscountID = bd.ID
             LEFT JOIN PR_Benefits_Discounts_Types bdt ON bd.Type = bdt.ID
-            ${whereClause} AND (bd.Type IS NULL OR bd.Type NOT IN (60, 90))
+            ${whereClause} AND (bd.Type IS NULL OR bd.Type NOT IN (60, 90)) AND te.Total <> 0 AND (bd.CompanyPaid IS NULL OR bd.CompanyPaid <> 1)
             GROUP BY ta.ID, ta.Reference, pt.Name, ta.DocDate
             ORDER BY ta.DocDate DESC
         `;
@@ -212,7 +213,7 @@ router.get('/nomina/detalle', async (req: Request, res: Response) => {
             INNER JOIN SA_Relationships r ON te.EmployeeID = r.ID
             LEFT JOIN PR_Benefits_Discounts bd ON te.BenefitDiscountID = bd.ID
             LEFT JOIN PR_Benefits_Discounts_Types bdt ON bd.Type = bdt.ID
-            ${whereClause} AND (bd.Type IS NULL OR bd.Type NOT IN (60, 90))
+            ${whereClause} AND (bd.Type IS NULL OR bd.Type NOT IN (60, 90)) AND te.Total <> 0 AND (bd.CompanyPaid IS NULL OR bd.CompanyPaid <> 1)
             GROUP BY r.FullName, r.Code, r.FiscalID, r.ID, ta.ID, ta.Reference, pt.Name, ta.DocDate
             ORDER BY r.FullName, ta.DocDate DESC
         `);
@@ -259,17 +260,17 @@ router.get('/nomina/kpis', async (_req: Request, res: Response) => {
                  FROM SA_Trans_Employees te 
                  LEFT JOIN PR_Benefits_Discounts bd ON te.BenefitDiscountID = bd.ID
                  LEFT JOIN PR_Benefits_Discounts_Types bdt ON bd.Type = bdt.ID
-                 WHERE te.TransID = @ultimo_trans_id AND (bd.Type IS NULL OR bd.Type NOT IN (60, 90))) AS total_neto_ultimo,
+                 WHERE te.TransID = @ultimo_trans_id AND (bd.Type IS NULL OR bd.Type NOT IN (60, 90)) AND te.Total <> 0 AND (bd.CompanyPaid IS NULL OR bd.CompanyPaid <> 1)) AS total_neto_ultimo,
                 (SELECT SUM(CASE WHEN bdt.Factor = 1 THEN te.Total ELSE 0 END) 
                  FROM SA_Trans_Employees te 
                  LEFT JOIN PR_Benefits_Discounts bd ON te.BenefitDiscountID = bd.ID
                  LEFT JOIN PR_Benefits_Discounts_Types bdt ON bd.Type = bdt.ID
-                 WHERE te.TransID = @ultimo_trans_id AND (bd.Type IS NULL OR bd.Type NOT IN (60, 90))) AS total_bruto_ultimo,
+                 WHERE te.TransID = @ultimo_trans_id AND (bd.Type IS NULL OR bd.Type NOT IN (60, 90)) AND te.Total <> 0 AND (bd.CompanyPaid IS NULL OR bd.CompanyPaid <> 1)) AS total_bruto_ultimo,
                 (SELECT SUM(CASE WHEN bdt.Factor = -1 THEN te.Total ELSE 0 END) 
                  FROM SA_Trans_Employees te 
                  LEFT JOIN PR_Benefits_Discounts bd ON te.BenefitDiscountID = bd.ID
                  LEFT JOIN PR_Benefits_Discounts_Types bdt ON bd.Type = bdt.ID
-                 WHERE te.TransID = @ultimo_trans_id AND (bd.Type IS NULL OR bd.Type NOT IN (60, 90))) AS total_deducciones_ultimo
+                 WHERE te.TransID = @ultimo_trans_id AND (bd.Type IS NULL OR bd.Type NOT IN (60, 90)) AND te.Total <> 0 AND (bd.CompanyPaid IS NULL OR bd.CompanyPaid <> 1)) AS total_deducciones_ultimo
         `);
         res.json(result.recordset[0]);
     } catch (err: any) {

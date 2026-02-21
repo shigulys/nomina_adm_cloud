@@ -16,6 +16,7 @@ interface DetalleLine {
     factor: number;
     tipo_movimiento: string;
     monto: number;
+    company_paid: number;
 }
 
 const DetalleNominaEjecutada: React.FC = () => {
@@ -45,6 +46,10 @@ const DetalleNominaEjecutada: React.FC = () => {
     }, [transId]);
 
     const filtered = data.filter(row => {
+        // Excluir de la vista tabla si el monto es 0 o es pagado por la empresa
+        if (row.monto === 0) return false;
+        if (row.company_paid === 1) return false;
+
         if (!busqueda) return true;
         const q = busqueda.toLowerCase();
         return (
@@ -62,81 +67,90 @@ const DetalleNominaEjecutada: React.FC = () => {
     };
 
     const exportExcel = () => {
-        // 1. Agrupar por empleado
-        const employees: Record<string, any> = {};
-        const conceptsSet = new Set<string>();
-        const conceptMetadata: Record<string, { type: number; factor: number }> = {};
+        const generateRows = (lines: DetalleLine[]) => {
+            const employees: Record<string, any> = {};
+            const conceptsSet = new Set<string>();
+            const conceptMetadata: Record<string, { type: number; factor: number }> = {};
 
-        filtered.forEach(r => {
-            const empKey = r.employee_id || r.empleado;
-            if (!employees[empKey]) {
-                employees[empKey] = {
-                    'Código': r.codigo,
-                    'Empleado': r.empleado,
-                    'Cédula': r.cedula,
-                    '_total_ingresos': 0,
-                    '_total_deducciones': 0,
-                };
-            }
+            lines.forEach(r => {
+                const empKey = r.employee_id || r.empleado;
+                if (!employees[empKey]) {
+                    employees[empKey] = {
+                        'Código': r.codigo,
+                        'Empleado': r.empleado,
+                        'Cédula': r.cedula,
+                        '_total_ingresos': 0,
+                        '_total_deducciones': 0,
+                    };
+                }
 
-            const conceptName = r.concepto || 'S/N';
-            employees[empKey][conceptName] = (employees[empKey][conceptName] || 0) + r.monto;
+                const conceptName = r.concepto || 'S/N';
+                employees[empKey][conceptName] = (employees[empKey][conceptName] || 0) + r.monto;
 
-            if (r.factor === 1) {
-                employees[empKey]._total_ingresos += r.monto;
-            } else if (r.factor === -1) {
-                employees[empKey]._total_deducciones += r.monto;
-            }
+                // Solo sumar a los totales si NO es pagado por la empresa
+                if (r.company_paid !== 1) {
+                    if (r.factor === 1) {
+                        employees[empKey]._total_ingresos += r.monto;
+                    } else if (r.factor === -1) {
+                        employees[empKey]._total_deducciones += r.monto;
+                    }
+                }
 
-            conceptsSet.add(conceptName);
-            // Guardar metadata del concepto para ordenar columnas luego
-            if (!conceptMetadata[conceptName]) {
-                conceptMetadata[conceptName] = { type: r.concepto_tipo_id, factor: r.factor };
-            }
-        });
-
-        // 2. Ordenar conceptos: Salarios (Tipo 0) -> Ingresos (Factor 1) -> Deducciones (Factor -1)
-        const sortedConcepts = Array.from(conceptsSet).sort((a, b) => {
-            const metaA = conceptMetadata[a];
-            const metaB = conceptMetadata[b];
-
-            // Tipo 0 (Salario) va primero
-            if (metaA.type === 0 && metaB.type !== 0) return -1;
-            if (metaB.type === 0 && metaA.type !== 0) return 1;
-
-            // Factor 1 (Ingreso) va antes que -1 (Deducción)
-            if (metaA.factor === 1 && metaB.factor === -1) return -1;
-            if (metaB.factor === 1 && metaA.factor === -1) return 1;
-
-            // Por nombre si son del mismo tipo/factor
-            return a.localeCompare(b);
-        });
-
-        // 3. Construir filas finales para el Excel
-        const rows = Object.values(employees).map(emp => {
-            const row: any = {
-                'Código': emp['Código'],
-                'Empleado': emp.Empleado,
-                'Cédula': emp['Cédula'],
-            };
-
-            // Agregar columnas de conceptos en orden
-            sortedConcepts.forEach(c => {
-                row[c] = emp[c] || 0;
+                conceptsSet.add(conceptName);
+                if (!conceptMetadata[conceptName]) {
+                    conceptMetadata[conceptName] = { type: r.concepto_tipo_id, factor: r.factor };
+                }
             });
 
-            // Totales al final
-            row['Total Ingresos'] = emp._total_ingresos;
-            row['Total Deducciones'] = emp._total_deducciones;
-            row['Neto a Pagar'] = emp._total_ingresos - emp._total_deducciones;
+            const sortedConcepts = Array.from(conceptsSet).sort((a, b) => {
+                const metaA = conceptMetadata[a];
+                const metaB = conceptMetadata[b];
+                if (metaA.type === 0 && metaB.type !== 0) return -1;
+                if (metaB.type === 0 && metaA.type !== 0) return 1;
+                if (metaA.factor === 1 && metaB.factor === -1) return -1;
+                if (metaB.factor === 1 && metaA.factor === -1) return 1;
+                return a.localeCompare(b);
+            });
 
-            return row;
-        });
+            return Object.values(employees).map(emp => {
+                const row: any = {
+                    'Código': emp['Código'],
+                    'Empleado': emp.Empleado,
+                    'Cédula': emp['Cédula'],
+                };
+                sortedConcepts.forEach(c => {
+                    row[c] = emp[c] || 0;
+                });
+                row['Total Ingresos'] = emp._total_ingresos;
+                row['Total Deducciones'] = emp._total_deducciones;
+                row['Neto a Pagar'] = emp._total_ingresos - emp._total_deducciones;
+                return row;
+            });
+        };
 
-        const ws = XLSX.utils.json_to_sheet(rows);
+        // 1. Separar datos
+        const principalLines = data.filter(r => r.monto !== 0 && r.company_paid === 0);
+        const analysisLines = data.filter(r => r.company_paid === 1);
+
+        // 2. Generar filas para cada hoja
+        const principalRows = generateRows(principalLines);
+        const analysisRows = generateRows(analysisLines);
+
+        // 3. Crear el libro y agregar las hojas
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Nómina Columnar');
-        XLSX.writeFile(wb, `nomina_columnar_${transId?.substring(0, 8)}.xlsx`);
+
+        if (principalRows.length > 0) {
+            const wsPrincipal = XLSX.utils.json_to_sheet(principalRows);
+            XLSX.utils.book_append_sheet(wb, wsPrincipal, 'Nómina Principal');
+        }
+
+        if (analysisRows.length > 0) {
+            const wsAnalysis = XLSX.utils.json_to_sheet(analysisRows);
+            XLSX.utils.book_append_sheet(wb, wsAnalysis, 'Análisis - Otros Conceptos');
+        }
+
+        // 4. Guardar archivo
+        XLSX.writeFile(wb, `nomina_detallada_${transId?.substring(0, 8)}.xlsx`);
     };
 
     return (
@@ -163,9 +177,9 @@ const DetalleNominaEjecutada: React.FC = () => {
                 </div>
 
                 <div style={{ marginLeft: 'auto', alignSelf: 'flex-end' }}>
-                    <button className="btn btn-success btn-sm" onClick={exportExcel} disabled={filtered.length === 0}>
+                    <button className="btn btn-success btn-sm" onClick={exportExcel} disabled={data.length === 0}>
                         <Download size={14} />
-                        Exportar Excel
+                        Exportar Excel Completo
                     </button>
                 </div>
             </div>
