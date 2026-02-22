@@ -1,28 +1,44 @@
 import axios from 'axios';
 
-const BASE_URL = 'http://localhost:3002/api';
-
 const api = axios.create({
-    baseURL: BASE_URL,
+    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3002/api',
     timeout: 15000,
     headers: { 'Content-Type': 'application/json' },
+});
+
+// Interceptor para agregar el token
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
 });
 
 // Interceptor para errores
 api.interceptors.response.use(
     (response) => response,
     (error) => {
+        if (error.response?.status === 401) {
+            // Token expirado o inválido
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auth_user');
+            if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
+            }
+        }
         console.error('API Error:', error.response?.data || error.message);
         return Promise.reject(error);
     }
 );
 
+// ===== AUTHENTICATION =====
+export const login = (credentials: any) => api.post('/auth/login', credentials);
+export const getMe = () => api.get('/auth/me');
+
 // ===== ENDPOINTS =====
-
 export const testConnection = () => api.get('/test');
-
 export const getTablasDB = () => api.get('/tablas');
-
 export const getEmpleados = (busqueda?: string) =>
     api.get('/empleados', { params: { busqueda } });
 

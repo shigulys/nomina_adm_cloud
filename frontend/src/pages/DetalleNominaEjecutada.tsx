@@ -67,7 +67,7 @@ const DetalleNominaEjecutada: React.FC = () => {
     };
 
     const exportExcel = () => {
-        const generateRows = (lines: DetalleLine[]) => {
+        const generateRows = (lines: DetalleLine[], includeTotals: boolean = true) => {
             const employees: Record<string, any> = {};
             const conceptsSet = new Set<string>();
             const conceptMetadata: Record<string, { type: number; factor: number }> = {};
@@ -105,10 +105,22 @@ const DetalleNominaEjecutada: React.FC = () => {
             const sortedConcepts = Array.from(conceptsSet).sort((a, b) => {
                 const metaA = conceptMetadata[a];
                 const metaB = conceptMetadata[b];
+
+                // Prioridad 1: Tipo 0 (Sueldo Base u otro fundamental si existe, aunque no parece usarse explícitamente así aquí)
                 if (metaA.type === 0 && metaB.type !== 0) return -1;
                 if (metaB.type === 0 && metaA.type !== 0) return 1;
+
+                // Prioridad 2: Ingresos antes que Deducciones
                 if (metaA.factor === 1 && metaB.factor === -1) return -1;
                 if (metaB.factor === 1 && metaA.factor === -1) return 1;
+
+                // Prioridad 3: Conceptos que contienen "Salario" primero dentro de su grupo (Ingresos/Deducciones)
+                const isSalarioA = a.toLowerCase().includes('salario');
+                const isSalarioB = b.toLowerCase().includes('salario');
+                if (isSalarioA && !isSalarioB) return -1;
+                if (!isSalarioA && isSalarioB) return 1;
+
+                // Por defecto: Alfabético
                 return a.localeCompare(b);
             });
 
@@ -121,9 +133,11 @@ const DetalleNominaEjecutada: React.FC = () => {
                 sortedConcepts.forEach(c => {
                     row[c] = emp[c] || 0;
                 });
-                row['Total Ingresos'] = emp._total_ingresos;
-                row['Total Deducciones'] = emp._total_deducciones;
-                row['Neto a Pagar'] = emp._total_ingresos - emp._total_deducciones;
+                if (includeTotals) {
+                    row['Total Ingresos'] = emp._total_ingresos;
+                    row['Total Deducciones'] = emp._total_deducciones;
+                    row['Neto a Pagar'] = emp._total_ingresos - emp._total_deducciones;
+                }
                 return row;
             });
         };
@@ -133,8 +147,8 @@ const DetalleNominaEjecutada: React.FC = () => {
         const analysisLines = data.filter(r => r.company_paid === 1);
 
         // 2. Generar filas para cada hoja
-        const principalRows = generateRows(principalLines);
-        const analysisRows = generateRows(analysisLines);
+        const principalRows = generateRows(principalLines, true);
+        const analysisRows = generateRows(analysisLines, false);
 
         // 3. Crear el libro y agregar las hojas
         const wb = XLSX.utils.book_new();

@@ -126,7 +126,7 @@ router.get('/nomina/ejecutadas/:transId', async (req: Request, res: Response) =>
                 LEFT JOIN PR_Benefits_Discounts bd ON te.BenefitDiscountID = bd.ID
                 LEFT JOIN PR_Benefits_Discounts_Types bdt ON bd.Type = bdt.ID
                 WHERE te.TransID = @transId AND (bd.Type IS NULL OR bd.Type NOT IN (60, 90))
-                ORDER BY r.FullName, bdt.Factor DESC
+                ORDER BY r.FullName, bdt.Factor DESC, CASE WHEN bd.Name LIKE '%Salario%' THEN 0 ELSE 1 END, bd.Name
             `);
 
         res.json(result.recordset);

@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import authRoutes, { authenticateToken } from './routes/auth';
 import nominaRoutes from './routes/nomina';
 
 dotenv.config();
@@ -17,7 +18,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-app.use('/api', nominaRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api', authenticateToken, nominaRoutes);
 
 // Health check
 app.get('/', (_req, res) => {
