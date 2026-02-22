@@ -1,14 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-import path from 'path';
 
-dotenv.config({ path: path.join(__dirname, '../../.env') });
-
+// No cargar dotenv aquí, dejar que index.ts lo haga
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_ANON_KEY || '';
 
 if (!supabaseUrl || !supabaseKey) {
-    console.error('❌ Error: SUPABASE_URL y SUPABASE_ANON_KEY son requeridos en .env');
+    console.warn('⚠️ Supabase URL o Key no encontradas en variables de entorno');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseKey);

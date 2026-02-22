@@ -1,13 +1,20 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import authRoutes, { authenticateToken } from './routes/auth';
 import nominaRoutes from './routes/nomina';
 
-dotenv.config();
-
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+console.log('--- Configuración del Servidor ---');
+console.log(`PORT: ${PORT}`);
+console.log(`SUPABASE_URL: ${process.env.SUPABASE_URL ? '✅ Encontrada' : '❌ NO ENCONTRADA'}`);
+console.log(`SUPABASE_ANON_KEY: ${process.env.SUPABASE_ANON_KEY ? '✅ Encontrada' : '❌ NO ENCONTRADA'}`);
+console.log(`JWT_SECRET: ${process.env.JWT_SECRET ? '✅ Encontrado' : '❌ NO ENCONTRADO'}`);
+console.log('---------------------------------');
 
 // Middlewares
 app.use(cors({

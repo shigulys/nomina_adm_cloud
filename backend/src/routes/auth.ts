@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { supabase } from '../config/supabaseClient';
+import pool from '../config/pgClient';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-change-me';
@@ -10,37 +10,41 @@ const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-change-me';
 router.post('/login', async (req: Request, res: Response) => {
     try {
         const { username, password } = req.body;
+        console.log(`[Auth] Intento de login (Direct PG) para usuario: "${username}"`);
 
         if (!username || !password) {
             return res.status(400).json({ error: 'Username and password are required' });
         }
 
-        // Buscar usuario en Supabase (tabla app_users)
-        const { data: user, error } = await supabase
-            .from('app_users')
-            .select('*')
-            .eq('username', username)
-            .eq('is_active', true)
-            .single();
+        // Buscar usuario directo en PG
+        const userRes = await pool.query(
+            'SELECT * FROM app_users WHERE username ILIKE $1 AND is_active = TRUE',
+            [username]
+        );
 
-        if (error || !user) {
+        const user = userRes.rows[0];
+
+        if (!user) {
+            console.log(`[Auth] Usuario no encontrado: "${username}"`);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
+
+        console.log(`[Auth] Usuario encontrado: ${user.username} (${user.role})`);
 
         // Verificar contraseña
         const isMatch = await bcrypt.compare(password, user.password_hash);
         if (!isMatch) {
+            console.log(`[Auth] Contraseña incorrecta para: "${username}"`);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // Obtener permisos por rol
-        const { data: permissions } = await supabase
-            .from('app_permissions')
-            .select('menu_key')
-            .eq('role', user.role)
-            .eq('allowed', true);
+        // Obtener permisos por rol - Directo en PG
+        const permRes = await pool.query(
+            'SELECT menu_key FROM app_permissions WHERE role = $1 AND allowed = TRUE',
+            [user.role]
+        );
 
-        const menuItems = permissions?.map(p => p.menu_key) || [];
+        const menuItems = permRes.rows.map((p: any) => p.menu_key);
 
         // Generar JWT
         const token = jwt.sign(
@@ -60,6 +64,7 @@ router.post('/login', async (req: Request, res: Response) => {
             }
         });
     } catch (err: any) {
+        console.error('[Auth] Error fatal en login:', err.message);
         res.status(500).json({ error: err.message });
     }
 });
