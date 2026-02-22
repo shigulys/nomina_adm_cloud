@@ -19,6 +19,7 @@ interface DetalleItem {
     salario_bruto: number;
     total_deducciones: number;
     salario_neto: number;
+    proyecto?: string;
 }
 
 const fmt = (v: number | null | undefined) => {
@@ -76,6 +77,7 @@ const NominaDetalle: React.FC = () => {
             'Empleado': r.empleado,
             'Código': r.codigo,
             'Cédula': r.cedula,
+            'Proyecto': r.proyecto,
             'Salario Bruto': r.salario_bruto,
             'Total Deducciones': r.total_deducciones,
             'Salario Neto': r.salario_neto,
@@ -150,6 +152,7 @@ const NominaDetalle: React.FC = () => {
                             <thead>
                                 <tr>
                                     <th>Empleado</th>
+                                    <th>Proyecto</th>
                                     <th>Código</th>
                                     <th>Cédula</th>
                                     <th>Período</th>
@@ -163,6 +166,7 @@ const NominaDetalle: React.FC = () => {
                                 {filtered.map((row) => (
                                     <tr key={`${row.id}-${row.periodo}`}>
                                         <td className="highlight">{row.empleado}</td>
+                                        <td><span className="badge badge-accent" style={{ fontSize: '0.7rem' }}>{row.proyecto || 'S/P'}</span></td>
                                         <td style={{ fontFamily: 'monospace' }}>{row.codigo}</td>
                                         <td>{row.cedula}</td>
                                         <td><span className="badge badge-accent">{row.nombre_periodo}</span></td>

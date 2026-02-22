@@ -120,11 +120,16 @@ router.get('/nomina/ejecutadas/:transId', async (req: Request, res: Response) =>
                     bdt.Factor as factor,
                     CASE bdt.Factor WHEN 1 THEN 'Ingreso' ELSE 'Deducción' END as tipo_movimiento,
                     te.Total as monto,
-                    COALESCE(bd.CompanyPaid, 0) as company_paid
+                    COALESCE(bd.CompanyPaid, 0) as company_paid,
+                    loc.Name as Proyecto,
+                    ta.DocDate as fecha_aplicacion,
+                    ta.Reference as referencia
                 FROM SA_Trans_Employees te
                 INNER JOIN SA_Relationships r ON te.EmployeeID = r.ID
+                INNER JOIN SA_Transactions ta ON te.TransID = ta.ID
                 LEFT JOIN PR_Benefits_Discounts bd ON te.BenefitDiscountID = bd.ID
                 LEFT JOIN PR_Benefits_Discounts_Types bdt ON bd.Type = bdt.ID
+                LEFT JOIN SA_Locations loc ON te.LocationID = loc.Id
                 WHERE te.TransID = @transId AND (bd.Type IS NULL OR bd.Type NOT IN (60, 90))
                 ORDER BY r.FullName, bdt.Factor DESC, CASE WHEN bd.Name LIKE '%Salario%' THEN 0 ELSE 1 END, bd.Name
             `);
@@ -200,10 +205,10 @@ router.get('/nomina/detalle', async (req: Request, res: Response) => {
                 r.FullName as empleado,
                 COALESCE(r.Code, 'S/C') as codigo,
                 COALESCE(r.FiscalID, '000-0000000-0') as cedula,
-                r.ID as id,
                 ta.ID as periodo,
                 ta.DocDate as fecha,
                 ta.Reference + ' (' + pt.Name + ')' as nombre_periodo,
+                loc.Name as proyecto,
                 SUM(CASE WHEN bdt.Factor = 1 THEN te.Total ELSE 0 END) as salario_bruto,
                 SUM(CASE WHEN bdt.Factor = -1 THEN te.Total ELSE 0 END) as total_deducciones,
                 SUM(CASE WHEN bdt.Factor = 1 THEN te.Total ELSE -te.Total END) as salario_neto
@@ -213,8 +218,9 @@ router.get('/nomina/detalle', async (req: Request, res: Response) => {
             INNER JOIN SA_Relationships r ON te.EmployeeID = r.ID
             LEFT JOIN PR_Benefits_Discounts bd ON te.BenefitDiscountID = bd.ID
             LEFT JOIN PR_Benefits_Discounts_Types bdt ON bd.Type = bdt.ID
+            LEFT JOIN SA_Locations loc ON te.LocationID = loc.Id
             ${whereClause} AND (bd.Type IS NULL OR bd.Type NOT IN (60, 90)) AND te.Total <> 0 AND (bd.CompanyPaid IS NULL OR bd.CompanyPaid <> 1)
-            GROUP BY r.FullName, r.Code, r.FiscalID, r.ID, ta.ID, ta.Reference, pt.Name, ta.DocDate
+            GROUP BY r.FullName, r.Code, r.FiscalID, r.ID, ta.ID, ta.Reference, pt.Name, ta.DocDate, loc.Name
             ORDER BY r.FullName, ta.DocDate DESC
         `);
 

@@ -17,6 +17,9 @@ interface DetalleLine {
     tipo_movimiento: string;
     monto: number;
     company_paid: number;
+    Proyecto?: string;
+    fecha_aplicacion?: string;
+    referencia?: string;
 }
 
 const DetalleNominaEjecutada: React.FC = () => {
@@ -79,8 +82,11 @@ const DetalleNominaEjecutada: React.FC = () => {
                         'Código': r.codigo,
                         'Empleado': r.empleado,
                         'Cédula': r.cedula,
+                        'Fecha': r.fecha_aplicacion ? new Date(r.fecha_aplicacion).toLocaleDateString() : '',
+                        'Referencia': r.referencia || '',
                         '_total_ingresos': 0,
                         '_total_deducciones': 0,
+                        'Proyecto': r.Proyecto || '',
                     };
                 }
 
@@ -129,6 +135,9 @@ const DetalleNominaEjecutada: React.FC = () => {
                     'Código': emp['Código'],
                     'Empleado': emp.Empleado,
                     'Cédula': emp['Cédula'],
+                    'Fecha': emp['Fecha'],
+                    'Referencia': emp['Referencia'],
+                    'Proyecto': emp.Proyecto,
                 };
                 sortedConcepts.forEach(c => {
                     row[c] = emp[c] || 0;
@@ -225,6 +234,7 @@ const DetalleNominaEjecutada: React.FC = () => {
                             <thead>
                                 <tr>
                                     <th>Empleado</th>
+                                    <th>Proyecto</th>
                                     <th>Concepto</th>
                                     <th>Tipo</th>
                                     <th className="text-right">Monto</th>
@@ -238,9 +248,9 @@ const DetalleNominaEjecutada: React.FC = () => {
                                             <td>
                                                 <div className="employee-cell">
                                                     <div className="employee-name">{row.empleado}</div>
-                                                    <div className="employee-meta">{row.codigo} • {row.cedula}</div>
                                                 </div>
                                             </td>
+                                            <td><span className="badge badge-accent" style={{ fontSize: '0.7rem' }}>{row.Proyecto || 'S/P'}</span></td>
                                             <td>{row.concepto || 'S/N'}</td>
                                             <td>
                                                 <span className={`badge ${isLoan ? 'badge-warning' : (row.tipo_movimiento === 'Ingreso' ? 'badge-success' : 'badge-danger')}`}>
