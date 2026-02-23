@@ -14,6 +14,11 @@ console.log(`PORT: ${PORT}`);
 console.log(`SUPABASE_URL: ${process.env.SUPABASE_URL ? '✅ Encontrada' : '❌ NO ENCONTRADA'}`);
 console.log(`SUPABASE_ANON_KEY: ${process.env.SUPABASE_ANON_KEY ? '✅ Encontrada' : '❌ NO ENCONTRADA'}`);
 console.log(`JWT_SECRET: ${process.env.JWT_SECRET ? '✅ Encontrado' : '❌ NO ENCONTRADO'}`);
+console.log('--- Configuración ADM Cloud (MSSQL) ---');
+console.log(`DB_SERVER: ${process.env.DB_SERVER || '❌ NO DEFINIDO'}`);
+console.log(`DB_DATABASE: ${process.env.DB_DATABASE || '❌ NO DEFINIDO'}`);
+console.log(`DB_USER: ${process.env.DB_USER ? '✅ Definido' : '❌ NO DEFINIDO'}`);
+console.log(`DB_PASSWORD: ${process.env.DB_PASSWORD ? '✅ Definido' : '❌ NO DEFINIDO'}`);
 console.log('---------------------------------');
 
 // Middlewares

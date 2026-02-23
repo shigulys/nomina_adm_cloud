@@ -27,8 +27,14 @@ let pool: sql.ConnectionPool | null = null;
 
 export async function getPool(): Promise<sql.ConnectionPool> {
     if (!pool || !pool.connected) {
-        pool = await sql.connect(config);
-        console.log('✅ Conectado a SQL Server Azure');
+        try {
+            console.log('--- Intentando conectar a SQL Server Azure ---');
+            pool = await sql.connect(config);
+            console.log('✅ Conectado a SQL Server Azure');
+        } catch (err) {
+            console.error('❌ ERROR al conectar a SQL Server Azure:', err);
+            throw err;
+        }
     }
     return pool;
 }
